@@ -1,39 +1,109 @@
-version: '3.2'
-services:
-  selenoid:
-    image: "aerokube/selenoid:1.10.9"
-    container_name: selenoid
-    ports:
-      - "4444:4444"
-    networks:
-      selenoid: null
-    #  - selenoid
-    volumes:
-      #- ".:/etc/selenoid"
-      #- "./selenoid_config:/etc/selenoid"
-      #- "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config:/etc/selenoid"
-      - type: bind
-        source: "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/"
-        target: "/etc/selenoid"
-      #- "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/:/etc/selenoid"
-      - "./target:/output"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./target:/opt/selenoid/video"
-    environment:
-      - "OVERRIDE_VIDEO_OUTPUT_DIR=$PWD/target"
-    command: ["-conf", "/etc/selenoid/browsers.json", "-video-output-dir", "/opt/selenoid/video", "-container-network", "selenoid"]
-  #works ok!
-  selenoid-ui:
-    image: "aerokube/selenoid-ui:dev-latest"
-    container_name: selenoid-ui
-    links:
-      - selenoid
-    ports:
-      - "8080:8080"
-    networks:
-      - selenoid
-    command: ["--selenoid-uri", "http://selenoid:4444"]     
-networks:
-  selenoid:
-    external:
-      name: selenoid
+pipeline{
+    agent any
+    options{
+        timestamps()
+    }
+    environment{
+        webapp_repo_name = "908335-cinemaddict-14"
+        selenoid_conf_repo_name = "selenoid_conf"
+        ui_tests_repo_name = "cinemaddict_tests"
+    }
+    stages{
+        stage("Get webapp src"){
+            steps{
+                dir(webapp_repo_name){
+                    git branch: 'master', url: 'https://github.com/Evafan1337/'+webapp_repo_name+'/'
+                }
+            }
+        }
+        stage("Install packages and build webapp via Docker"){
+            steps{
+                sh """ 
+                #!/bin/bash
+                cd $webapp_repo_name
+                docker build -t js_app:latest .
+                docker run --name js_app_c -d js_app
+                """ 
+            }
+        }
+        stage("Get selenoid configuration"){
+            steps{
+                dir(selenoid_conf_repo_name){
+                    git branch: 'main', url: 'https://github.com/Evafan1337/'+selenoid_conf_repo_name+'/'
+                }
+            }
+        }
+        stage("Start selenoid"){
+            steps{
+                sh """ 
+                #!/bin/bash
+                cd $selenoid_conf_repo_name
+                pwd
+                ls -l
+                cd selenoid_config
+                pwd
+                ls -l
+                cd ..
+
+                docker run -d \
+                --name selenoid \
+                -p 4444:4444 \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v /var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/:/etc/selenoid/:ro \
+                aerokube/selenoid:1.10.9
+                """
+            }
+        }
+        stage("Start selenoid-ui"){
+            steps{
+                echo 'Start selenoid-ui'
+            }
+
+        }
+        stage("Get tests source code"){
+            steps{
+                dir(ui_tests_repo_name){
+                    git branch: 'selenoid', url: 'https://github.com/Evafan1337/'+ui_tests_repo_name+'/'
+                }
+            }
+        }
+        stage("Run tests"){
+            steps{
+                sh """ 
+                #!/bin/bash
+                cd $ui_tests_repo_name
+                pwd
+                ls
+                docker build -t behave .
+                docker run behave
+                """ 
+            }
+        }
+        stage("Handle result"){
+            steps{
+                sh """ 
+                #!/bin/bash
+                pwd
+                ls
+                """ 
+            }
+        }
+    }
+    post{
+        always{
+            echo 'end!'
+
+            sh 'docker container stop js_app_c && docker container rm js_app_c'
+
+            sh 'docker stop selenoid-ui'
+            sh 'docker stop selenoid'
+            
+            sh 'docker rm selenoid-ui'
+            sh 'docker rm selenoid'
+            
+            
+
+            sh 'docker container prune'
+        }
+    }
+}
