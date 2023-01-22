@@ -13,8 +13,8 @@ services:
       #- "./selenoid_config:/etc/selenoid"
       #- "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config:/etc/selenoid"
       - type: bind
-        source: /var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/
-        target: /etc/selenoid
+        source: "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/"
+        target: "/etc/selenoid"
       #- "/var/jenkins_home/workspace/test_pipeline/selenoid_conf/selenoid_config/:/etc/selenoid"
       - "./target:/output"
       - "/var/run/docker.sock:/var/run/docker.sock"
