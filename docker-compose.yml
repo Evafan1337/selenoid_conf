@@ -1,4 +1,4 @@
-version: '3'
+version: '3.2'
 services:
   selenoid:
     image: "aerokube/selenoid:1.10.9"
