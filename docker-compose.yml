@@ -9,7 +9,8 @@ services:
       selenoid: null
     #  - selenoid
     volumes:
-      - ".:/etc/selenoid"
+      #- ".:/etc/selenoid"
+      - "$PWD:/etc/selenoid"
       - "./target:/output"
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "./target:/opt/selenoid/video"
